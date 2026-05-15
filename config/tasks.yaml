@@ -1,0 +1,41 @@
+# CrewAI task configurations for HuntFlow
+
+job_discovery_task:
+  description: "Search for job opportunities across all sources using keyword searches"
+  expected_output: "List of filtered job opportunities with scores"
+
+resume_optimization_task:
+  description: "Optimize resume for specific job posting"
+  expected_output: "Tailored resume content optimized for target job"
+
+ats_scoring_task:
+  description: "Score resume against job requirements"
+  expected_output: "ATS compatibility score with keyword recommendations"
+
+cover_letter_task:
+  description: "Generate personalized cover letter"
+  expected_output: "Tailored cover letter for specific application"
+
+company_research_task:
+  description: "Research company information and hiring signals"
+  expected_output: "Company profile with insights and talking points"
+
+salary_analysis_task:
+  description: "Analyze compensation for the role"
+  expected_output: "Salary report with negotiation guidance"
+
+outreach_task:
+  description: "Create cold email outreach"
+  expected_output: "Personalized email ready to send"
+
+application_tracking_task:
+  description: "Update application status and track follow-ups"
+  expected_output: "Updated application records with next steps"
+
+interview_prep_task:
+  description: "Create interview preparation materials"
+  expected_output: "Interview guide with practice questions and talking points"
+
+digest_task:
+  description: "Create daily summary and send notifications"
+  expected_output: "Digest sent with daily metrics and highlights"

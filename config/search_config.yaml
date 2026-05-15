@@ -1,0 +1,50 @@
+# Keyword-based job search configuration (NOT a company list)
+# HuntFlow discovers jobs by searching with keywords, not by targeting companies
+
+search_keywords:
+  - software engineer
+  - data scientist
+  - product manager
+  - backend engineer
+  - frontend engineer
+  - full stack engineer
+  - devops engineer
+  - machine learning engineer
+
+job_boards:
+  ashby:
+    enabled: true
+    search_mode: "keyword_broad"  # searches across 1000+ Ashby companies
+    rate_limit: 5
+  wellfound:
+    enabled: true
+    search_mode: "api"
+    rate_limit: 10
+  yc:
+    enabled: true
+    search_mode: "scrape"
+    rate_limit: 5
+  remotive:
+    enabled: true
+    search_mode: "api"
+    rate_limit: 20
+  greenhouse:
+    enabled: true
+    search_mode: "scrape"
+    rate_limit: 5
+  linkedin:
+    enabled: true
+    search_mode: "rss"  # see .env for modes
+    rate_limit: 20
+
+filters:
+  min_job_score: 30
+  max_jobs_per_run: 200
+  location_preference: "remote"  # remote, us, specific_states
+  experience_level: "mid"  # entry, mid, senior
+  min_salary: 100000
+  preferred_industries:
+    - technology
+    - fintech
+    - healthtech
+    - saas

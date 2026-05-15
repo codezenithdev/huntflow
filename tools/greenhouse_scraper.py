@@ -1,0 +1,1 @@
+"""Greenhouse job board scraper."""

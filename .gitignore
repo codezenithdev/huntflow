@@ -1,0 +1,13 @@
+.env
+data/chromadb/
+data/*.db
+data/resumes/
+data/outreach/
+data/prep/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+logs/
+*.egg-info/
+.claude

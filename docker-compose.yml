@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  huntflow:
+    build: .
+    container_name: huntflow
+    environment:
+      - LOG_LEVEL=INFO
+      - LLM_PROVIDER=groq
+      - LLM_MODEL=llama3-8b-8192
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env:ro
+    ports:
+      - "8501:8501"  # Streamlit dashboard
+    restart: unless-stopped
+
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: chromadb
+    environment:
+      - ALLOW_RESET=true
+    volumes:
+      - chromadb_data:/chroma/chroma
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+volumes:
+  chromadb_data:
