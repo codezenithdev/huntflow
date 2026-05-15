@@ -23,13 +23,7 @@ logger = get_logger(__name__)
 console = Console()
 
 
-@click.group()
-def cli() -> None:
-    """HuntFlow — AI Job Hunting Automation."""
-    pass
-
-
-@cli.command()
+# Actual job implementations (no Click decorators — these are callable from scheduler.py)
 def run_daily() -> None:
     """Run full daily discovery + scoring + digest."""
     console.print("[bold cyan]Starting daily discovery crew...[/bold cyan]")
@@ -42,9 +36,9 @@ def run_daily() -> None:
     except Exception as e:
         console.print(f"[bold red]Error: {e}[/bold red]")
         logger.error("daily_discovery_failed", error=str(e))
+        raise
 
 
-@cli.command()
 def run_outreach() -> None:
     """Draft outreach emails for top A-grade jobs."""
     console.print("[bold cyan]Starting outreach crew...[/bold cyan]")
@@ -57,26 +51,9 @@ def run_outreach() -> None:
     except Exception as e:
         console.print(f"[bold red]Error: {e}[/bold red]")
         logger.error("outreach_failed", error=str(e))
+        raise
 
 
-@cli.command()
-@click.argument("company")
-@click.argument("title")
-def prep(company: str, title: str) -> None:
-    """Generate interview prep for COMPANY + TITLE."""
-    console.print(f"[bold cyan]Generating interview prep for {company} — {title}...[/bold cyan]")
-    try:
-        crew = create_interview_prep_crew(company, title)
-        result = crew.kickoff()
-        console.print("[bold green]Interview prep completed[/bold green]")
-        if result:
-            console.print(f"\n{result}")
-    except Exception as e:
-        console.print(f"[bold red]Error: {e}[/bold red]")
-        logger.error("interview_prep_failed", error=str(e), company=company, title=title)
-
-
-@cli.command()
 def digest() -> None:
     """Send Telegram digest now."""
     console.print("[bold cyan]Sending digest...[/bold cyan]")
@@ -89,10 +66,25 @@ def digest() -> None:
     except Exception as e:
         console.print(f"[bold red]Error: {e}[/bold red]")
         logger.error("digest_failed", error=str(e))
+        raise
 
 
-@cli.command()
-def status() -> None:
+def prep_impl(company: str, title: str) -> None:
+    """Generate interview prep for COMPANY + TITLE."""
+    console.print(f"[bold cyan]Generating interview prep for {company} — {title}...[/bold cyan]")
+    try:
+        crew = create_interview_prep_crew(company, title)
+        result = crew.kickoff()
+        console.print("[bold green]Interview prep completed[/bold green]")
+        if result:
+            console.print(f"\n{result}")
+    except Exception as e:
+        console.print(f"[bold red]Error: {e}[/bold red]")
+        logger.error("interview_prep_failed", error=str(e), company=company, title=title)
+        raise
+
+
+def status_impl() -> None:
     """Show pipeline stats in terminal."""
     try:
         db = DatabaseManager()
@@ -131,11 +123,7 @@ def status() -> None:
         logger.error("status_failed", error=str(e))
 
 
-@cli.command()
-@click.option("--grade", default=None, help="Filter by grade (A+, A, B+, B, C+, C, D)")
-@click.option("--source", default=None, help="Filter by source (ashby, wellfound, yc, etc.)")
-@click.option("--limit", default=20, help="Max jobs to show")
-def jobs(grade: Optional[str], source: Optional[str], limit: int) -> None:
+def jobs_impl(grade: Optional[str] = None, source: Optional[str] = None, limit: int = 20) -> None:
     """List jobs with optional filters."""
     try:
         db = DatabaseManager()
@@ -165,8 +153,7 @@ def jobs(grade: Optional[str], source: Optional[str], limit: int) -> None:
         logger.error("jobs_list_failed", error=str(e))
 
 
-@cli.command()
-def test_telegram() -> None:
+def test_telegram_impl() -> None:
     """Verify Telegram bot connection."""
     console.print("[bold cyan]Testing Telegram connection...[/bold cyan]")
     try:
@@ -182,10 +169,7 @@ def test_telegram() -> None:
         logger.error("telegram_test_failed", error=str(e))
 
 
-@cli.command()
-@click.argument("url")
-@click.argument("status_name")
-def update(url: str, status_name: str) -> None:
+def update_impl(url: str, status_name: str) -> None:
     """Update application status. Valid: applied, outreach_sent, replied, interviewing, offer, rejected"""
     valid_statuses = ["applied", "outreach_sent", "replied", "interviewing", "offer", "rejected"]
 
@@ -201,6 +185,69 @@ def update(url: str, status_name: str) -> None:
     except Exception as e:
         console.print(f"[bold red]Error: {e}[/bold red]")
         logger.error("update_status_failed", error=str(e), url=url, status=status_name)
+
+
+# Click CLI group
+@click.group()
+def cli() -> None:
+    """HuntFlow — AI Job Hunting Automation."""
+    pass
+
+
+# Click commands (wrappers around implementation functions)
+@cli.command()
+def daily_cli() -> None:
+    """Run full daily discovery + scoring + digest."""
+    run_daily()
+
+
+@cli.command()
+def outreach_cli() -> None:
+    """Draft outreach emails for top A-grade jobs."""
+    run_outreach()
+
+
+@cli.command()
+@click.argument("company")
+@click.argument("title")
+def prep(company: str, title: str) -> None:
+    """Generate interview prep for COMPANY + TITLE."""
+    prep_impl(company, title)
+
+
+@cli.command()
+def digest_cli() -> None:
+    """Send Telegram digest now."""
+    digest()
+
+
+@cli.command()
+def status() -> None:
+    """Show pipeline stats in terminal."""
+    status_impl()
+
+
+@cli.command()
+@click.option("--grade", default=None, help="Filter by grade (A+, A, B+, B, C+, C, D)")
+@click.option("--source", default=None, help="Filter by source (ashby, wellfound, yc, etc.)")
+@click.option("--limit", default=20, help="Max jobs to show")
+def jobs(grade: Optional[str], source: Optional[str], limit: int) -> None:
+    """List jobs with optional filters."""
+    jobs_impl(grade, source, limit)
+
+
+@cli.command()
+def test_telegram() -> None:
+    """Verify Telegram bot connection."""
+    test_telegram_impl()
+
+
+@cli.command()
+@click.argument("url")
+@click.argument("status_name")
+def update(url: str, status_name: str) -> None:
+    """Update application status. Valid: applied, outreach_sent, replied, interviewing, offer, rejected"""
+    update_impl(url, status_name)
 
 
 if __name__ == "__main__":
