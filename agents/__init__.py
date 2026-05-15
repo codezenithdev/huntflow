@@ -14,7 +14,9 @@ def get_llm() -> Any:
     """Return the configured CrewAI LLM (Groq, OpenAI, or Ollama via LiteLLM)."""
     provider = os.getenv("LLM_PROVIDER", "groq").lower().strip()
     if provider == "groq":
-        model = os.getenv("LLM_MODEL", "llama3-8b-8192")
+        # Use mixtral-8x7b-32768 (stable, fast) or llama-3.1-70b-versatile (more capable)
+        # llama3-8b-8192 was decommissioned; use this as fallback
+        model = os.getenv("LLM_MODEL", "mixtral-8x7b-32768")
         if not model.startswith("groq/"):
             model = f"groq/{model.removeprefix('groq/')}"
         return LLM(model=model, temperature=0.3, api_key=os.getenv("GROQ_API_KEY"))
