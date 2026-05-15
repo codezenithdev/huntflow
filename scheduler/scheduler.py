@@ -15,6 +15,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from cli import run_daily, run_outreach, digest
 from tools.sqlite_tracker import DatabaseManager
 from tools.telegram_notifier import TelegramNotifier
