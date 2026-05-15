@@ -1,30 +1,28 @@
-version: '3.8'
+version: '3.9'
 
 services:
   huntflow:
     build: .
     container_name: huntflow
-    environment:
-      - LOG_LEVEL=INFO
-      - LLM_PROVIDER=groq
-      - LLM_MODEL=llama3-8b-8192
+    restart: unless-stopped
     volumes:
       - ./data:/app/data
-      - ./.env:/app/.env:ro
+      - ./logs:/app/logs
+    env_file: .env
     ports:
-      - "8501:8501"  # Streamlit dashboard
-    restart: unless-stopped
-
-  chromadb:
-    image: chromadb/chroma:latest
-    container_name: chromadb
+      - "8080:8080"
     environment:
-      - ALLOW_RESET=true
-    volumes:
-      - chromadb_data:/chroma/chroma
-    ports:
-      - "8000:8000"
-    restart: unless-stopped
+      PYTHONUNBUFFERED: "1"
 
-volumes:
-  chromadb_data:
+  dashboard:
+    image: streamlit/streamlit:latest
+    container_name: huntflow-dashboard
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data:ro
+      - ./dashboard:/app
+    ports:
+      - "8501:8501"
+    depends_on:
+      - huntflow
+    command: streamlit run /app/dashboard.py --server.port=8501 --server.address=0.0.0.0

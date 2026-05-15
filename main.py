@@ -1,13 +1,7 @@
-"""HuntFlow main entry point for running the complete system."""
-import asyncio
-from scheduler.scheduler import start_scheduler
+#!/usr/bin/env python3
+"""HuntFlow main entry point."""
 
-
-async def main():
-    """Start HuntFlow scheduler and crews."""
-    print("Starting HuntFlow...")
-    start_scheduler()
-
+from cli import cli
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    cli()

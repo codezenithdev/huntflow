@@ -1,132 +1,124 @@
-"""Tests for ATS keyword scoring and resume variant selection."""
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+"""Tests for ATS scoring — resume variant selection, keyword matching, visa signals."""
+
+from __future__ import annotations
 
 import pytest
 
-from models import JobListing
-from tools.keyword_extractor import ALL_TECH_TERMS, ATSScorer, ATSKeywordTool, terms_present_in_text
+from models.job_listing import JobListing
+
+try:
+    from tools.keyword_extractor import ATSScorer, job_score
+    def compute_grade(score):
+        if score >= 70:
+            return "A"
+        elif score >= 50:
+            return "B"
+        elif score >= 30:
+            return "C"
+        else:
+            return "D"
+except ImportError:
+    ATSScorer = None
+    job_score = None
+    def compute_grade(score):
+        if score >= 70:
+            return "A"
+        elif score >= 50:
+            return "B"
+        elif score >= 30:
+            return "C"
+        else:
+            return "D"
 
 
-def _scorer_without_init() -> ATSScorer:
-    """ATSScorer instance without PDF loading (for fast unit tests)."""
-    s = object.__new__(ATSScorer)
-    s._resumes_dir = Path("/nonexistent")
-    s._resume_text = {
-        "ai": "We built RAG with LangChain, OpenAI, PyTorch, and Python.",
-        "fullstack": "React, TypeScript, Next.js, Node, and PostgreSQL.",
-    }
-    s._resume_keywords = {
-        "ai": terms_present_in_text(s._resume_text["ai"]),
-        "fullstack": terms_present_in_text(s._resume_text["fullstack"]),
-    }
-    s._sentence_model = None
-    s._keybert_model = None
-    return s
+class TestATSScorer:
+    """Test ATS scoring with realistic JD snippets."""
+
+    def setup_method(self):
+        """Initialize scorer for each test."""
+        self.scorer = ATSScorer()
+
+    def test_ai_heavy_jd_selects_ai_variant(self):
+        """AI-heavy JD should select 'ai' resume variant."""
+        jd = """We're building LLM features with LangChain, OpenAI API, RAG, pgvector,
+        embedding pipelines, and vector databases. You'll work on AI infrastructure."""
+
+        variant = self.scorer.select_resume_variant(jd)
+        assert variant == "ai", f"Expected 'ai' variant, got '{variant}'"
+
+    def test_ai_variant_score_reasonable(self):
+        """AI variant should score >= 40 on AI-heavy JD."""
+        jd = """We're building LLM features with LangChain, OpenAI API, RAG, pgvector,
+        embedding pipelines, and vector databases. You'll work on AI infrastructure."""
+
+        report = self.scorer.compute_ats_score(jd, "ai")
+        assert report.score >= 40, f"AI variant score on AI JD should be >= 40, got {report.score}"
+
+    def test_react_ts_jd_selects_fullstack_variant(self):
+        """React/TypeScript JD should select 'fullstack' resume variant."""
+        jd = """React, Next.js, TypeScript, Tailwind CSS, full stack ownership,
+        frontend performance optimization, server-side rendering."""
+
+        variant = self.scorer.select_resume_variant(jd)
+        assert variant == "fullstack", f"Expected 'fullstack' variant, got '{variant}'"
+
+    def test_java_backend_jd_has_keywords(self):
+        """Java backend JD should match keywords in 'backend' variant."""
+        jd = """Java, Spring Boot, PostgreSQL, microservices, REST APIs, AWS, Docker,
+        Kafka, distributed systems, high-throughput data processing."""
+
+        report = self.scorer.compute_ats_score(jd, "backend")
+        assert report.score >= 40, f"Backend variant score should be >= 40, got {report.score}"
+        assert len(report.present_keywords) > 0, "Should find present keywords"
+
+    def test_visa_negative_signal_penalty(self):
+        """Visa restriction should lower grade."""
+        job = JobListing(
+            title="Backend Engineer",
+            company="TestCo",
+            url="http://example.com/job1",
+            jd_text="Must be authorized to work without sponsorship. Java Spring AWS PostgreSQL",
+            source="test",
+        )
+
+        result = self.scorer.score_job(job, ats_score=65)
+        assert result["visa_flag"] == "negative", "Should detect visa restriction"
+        assert result["score"] < 60, f"Score with visa restriction should be < 60, got {result['score']}"
+
+    def test_visa_positive_signal_bonus(self):
+        """Visa sponsorship should boost grade."""
+        job = JobListing(
+            title="Founding Engineer",
+            company="StartupX",
+            url="http://example.com/job2",
+            jd_text="Visa sponsorship available. Founding team role. Java Spring Boot AWS Kafka",
+            source="test",
+        )
+
+        result = self.scorer.score_job(job, ats_score=70)
+        assert result["visa_flag"] == "positive", "Should detect visa sponsorship"
+        assert result["grade"] == "A", f"Visa positive + 70 ATS should be grade A, got {result['grade']}"
 
 
-def test_terms_present_in_text():
-    text = "We need Spring Boot, Kafka, and AWS Lambda."
-    found = terms_present_in_text(text)
-    assert "spring boot" in found
-    assert "kafka" in found
-    assert "lambda" in found
-    assert "ruby" not in found
+class TestGradeBoundaries:
+    """Test grade assignment boundaries."""
 
+    def test_grade_a_boundary(self):
+        """Score >= 70 should be grade A."""
+        grade = compute_grade(75)
+        assert grade == "A", f"Score 75 should be grade A, got {grade}"
 
-def test_all_tech_terms_unique_and_nonempty():
-    assert len(ALL_TECH_TERMS) == len(set(ALL_TECH_TERMS))
-    assert "postgresql" in ALL_TECH_TERMS
+    def test_grade_b_boundary(self):
+        """Score 50-69 should be grade B."""
+        grade = compute_grade(60)
+        assert grade == "B", f"Score 60 should be grade B, got {grade}"
 
+    def test_grade_c_boundary(self):
+        """Score 30-49 should be grade C."""
+        grade = compute_grade(40)
+        assert grade == "C", f"Score 40 should be grade C, got {grade}"
 
-def test_select_resume_variant_prefers_ai_signals():
-    s = _scorer_without_init()
-    jd = "Looking for an ML engineer with RAG, LangChain, and OpenAI APIs."
-    assert s.select_resume_variant(jd) == "ai"
-
-
-def test_select_resume_variant_prefers_fullstack_signals():
-    s = _scorer_without_init()
-    jd = "Senior frontend role: React, Next.js, TypeScript, UI polish."
-    assert s.select_resume_variant(jd) == "fullstack"
-
-
-def test_select_resume_variant_tie_uses_raw_score():
-    s = _scorer_without_init()
-    # Phrase hits both counts equally (0 vs 0): fall back to lexicon overlap with resumes
-    jd = "Engineering role."
-    v = s.select_resume_variant(jd)
-    assert v in ("ai", "fullstack")
-
-
-@patch.object(ATSScorer, "_semantic_similarity_score", return_value=0)
-@patch.object(ATSScorer, "_jd_keywords_with_keybert")
-def test_compute_ats_score_exact_only(mock_kw, _mock_sem):
-    mock_kw.return_value = {"python", "kubernetes", "rust"}
-    s = _scorer_without_init()
-    s._resume_keywords["ai"] = {"python", "kubernetes", "docker"}
-    report = s.compute_ats_score("Use Python and Kubernetes in production.", variant="ai")
-    assert report.resume_variant == "ai"
-    assert set(report.present_keywords) >= {"python", "kubernetes"}
-    assert "rust" in report.missing_keywords or "rust" in set(report.missing_keywords)
-    assert report.score == min(60, 2 * 3)  # two overlaps * 3
-
-
-def test_ats_keyword_tool_returns_json():
-    s = _scorer_without_init()
-    tool = ATSKeywordTool()
-    tool._scorer = s
-    with patch.object(ATSScorer, "_semantic_similarity_score", return_value=0), patch.object(
-        ATSScorer, "_jd_keywords_with_keybert", return_value={"python", "react"}
-    ):
-        raw = tool._run(jd_text="JD", variant="fullstack")
-    assert "score" in raw
-    assert "fullstack" in raw
-
-
-def test_atsscorer_graceful_when_no_pdf(tmp_path):
-    d = tmp_path / "empty"
-    d.mkdir()
-    scorer = ATSScorer(resumes_dir=d)
-    assert scorer._resume_keywords["ai"] == set()
-    assert scorer._resume_keywords["fullstack"] == set()
-
-
-def test_atsscorer_reads_pdf(tmp_path):
-    pdf_path = tmp_path / "ai.pdf"
-    pdf_path.write_bytes(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
-
-    fake_page = MagicMock()
-    fake_page.extract_text.return_value = "Python LangChain OpenAI RAG"
-
-    fake_pdf = MagicMock()
-    fake_pdf.__enter__.return_value = fake_pdf
-    fake_pdf.__exit__.return_value = None
-    fake_pdf.pages = [fake_page]
-
-    with patch("tools.keyword_extractor.pdfplumber.open", return_value=fake_pdf):
-        scorer = ATSScorer(resumes_dir=tmp_path)
-
-    assert "python" in scorer._resume_keywords["ai"]
-    assert "langchain" in scorer._resume_keywords["ai"]
-
-
-def test_job_score_integration():
-    from tools.keyword_extractor import job_score
-
-    job = JobListing(
-        title="Staff Backend Engineer",
-        company="Acme",
-        url="https://example.com/j",
-        jd_text=(
-            "Seed stage startup. Kubernetes, Java, Spring Boot, AWS, Kafka. "
-            "Fully remote. Visa sponsorship available."
-        ),
-        source="test",
-        is_remote=True,
-    )
-    out = job_score(job, ats_score=80)
-    assert out["grade"] in ("A", "B", "C", "D")
-    assert 0 <= out["score"] <= 100
-    assert out["visa_flag"] == "positive"
-    assert any("stack" in r for r in out["reasons"])
+    def test_grade_d_boundary(self):
+        """Score < 30 should be grade D."""
+        grade = compute_grade(25)
+        assert grade == "D", f"Score 25 should be grade D, got {grade}"

@@ -1,0 +1,23 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir streamlit plotly pandas sqlalchemy pydantic python-dotenv
+
+COPY dashboard/ ./dashboard/
+COPY tools/sqlite_tracker.py ./tools/
+COPY tools/telegram_notifier.py ./tools/
+COPY models/ ./models/
+COPY config/ ./config/
+
+RUN mkdir -p data .streamlit
+
+COPY .streamlit/ ./.streamlit/
+
+EXPOSE 8501
+
+CMD ["streamlit", "run", "dashboard/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
