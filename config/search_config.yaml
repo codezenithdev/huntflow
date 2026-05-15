@@ -1,50 +1,83 @@
 # Keyword-based job search configuration (NOT a company list)
-# HuntFlow discovers jobs by searching with keywords, not by targeting companies
+# HuntFlow discovers jobs by searching with keywords across the entire market
 
-search_keywords:
-  - software engineer
-  - data scientist
-  - product manager
-  - backend engineer
-  - frontend engineer
-  - full stack engineer
-  - devops engineer
-  - machine learning engineer
+search_queries:
+  primary:
+    - "founding engineer"
+    - "backend engineer"
+    - "full stack engineer"
+    - "software engineer"
+    - "AI engineer"
+    - "ML engineer"
+    - "platform engineer"
+  secondary:
+    - "senior software engineer"
+    - "senior backend engineer"
+    - "staff engineer"
+    - "infrastructure engineer"
+    - "DevOps engineer"
+    - "cloud engineer"
+    - "data engineer"
+    - "site reliability engineer"
+
+filters:
+  us_location_signals:
+    - "united states"
+    - "usa"
+    - " us "
+    - "remote"
+    - "anywhere"
+    - "new york"
+    - "san francisco"
+    - "seattle"
+    - "austin"
+    - "chicago"
+    - "boston"
+    - "los angeles"
+    - "denver"
+    - "atlanta"
+    - "miami"
+  exclude_titles:
+    - "manager"
+    - "director"
+    - "vp "
+    - "president"
+    - "head of product"
+    - "designer"
+    - "sales"
+    - "marketing"
+    - "finance"
+    - "legal"
+    - "recruiter"
+  min_jd_length: 200
+  max_jobs_per_source: 100
+
+scoring:
+  preferred_titles: ["founding", "staff", "lead", "principal"]
+  min_score_to_track: 30
+  min_score_to_research: 65
 
 job_boards:
   ashby:
     enabled: true
-    search_mode: "keyword_broad"  # searches across 1000+ Ashby companies
     rate_limit: 5
   wellfound:
     enabled: true
-    search_mode: "api"
     rate_limit: 10
   yc:
     enabled: true
-    search_mode: "scrape"
     rate_limit: 5
   remotive:
     enabled: true
-    search_mode: "api"
     rate_limit: 20
   greenhouse:
     enabled: true
-    search_mode: "scrape"
     rate_limit: 5
   linkedin:
     enabled: true
-    search_mode: "rss"  # see .env for modes
-    rate_limit: 20
-
-filters:
-  min_job_score: 30
-  max_jobs_per_run: 200
-  location_preference: "remote"  # remote, us, specific_states
-  experience_level: "mid"  # entry, mid, senior
-  min_salary: 100000
-  preferred_industries:
-    - technology
-    - fintech
-    - healthtech
-    - saas
+    mode: rss  # rss | cookie | rapidapi
+    rss_pages: 3  # pages to paginate (25 results each = 75 per query)
+    fetch_full_jd: true  # attempt to fetch full JD from public page
+    full_jd_timeout: 10  # seconds before giving up on full JD fetch
+    circuit_breaker_threshold: 3  # consecutive failures before cooling down
+    circuit_breaker_cooldown: 7200  # seconds (2 hours)
